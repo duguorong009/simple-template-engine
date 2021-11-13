@@ -1,19 +1,15 @@
 use std::collections::HashMap;
 
-pub fn generate_html_template_var(content: ExpressionData, context: HashMap<String, String>) -> String {
-    let mut html = String::new();
-
-    if let Some(h) = content.head {
-        html.push_str(&h);
-    }    
-    if let Some(val) = context.get(&content.variable) {
-        html.push_str(&val);
+pub fn generate_html_template_var(content: &mut ExpressionData, context: HashMap<String, String>) -> &mut ExpressionData {
+    content.gen_html = content.expression.clone();
+    for var in &content.var_map {
+        let (_h, i) = get_index_for_symbol(&var, '{');
+        let (_j, k) = get_index_for_symbol(&var, '}');
+        let var_without_braces = &var[i + 2..k];
+        let val = context.get(var_without_braces).unwrap();
+        content.gen_html = content.gen_html.replace(var, val);
     }
-    if let Some(t) = content.tail {
-        html.push_str(&t);
-    }
-
-    html
+    content
 }
 
 // Each line in input can be of one of following types
@@ -32,11 +28,11 @@ pub enum TagType {
 }
 
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct ExpressionData {
-    pub head: Option<String>,
-    pub variable: String,
-    pub tail: Option<String>,
+    pub expression: String,
+    pub var_map: Vec<String>,
+    pub gen_html: String,
 }
 
 pub fn get_content_type(input_line: &str) -> ContentType {
@@ -75,15 +71,17 @@ pub fn check_matching_pair(input: &str, symbol1: &str, symbol2: &str) -> bool {
 }
 
 pub fn get_expression_data(input_line: &str) -> ExpressionData {
-    let (_h, i) = get_index_for_symbol(input_line, '{');
-    let head = input_line[0..i].to_string();
-    let (_j, k) = get_index_for_symbol(input_line, '}');
-    let variable = input_line[i + 1 + 1..k].to_string();
-    let tail = input_line[k + 1 + 1..].to_string();
+    let expression_iter = input_line.split_whitespace();
+    let mut template_var_map: Vec<String> = vec![];
+    for word in expression_iter {
+        if check_symbol_string(word, "{{") && check_symbol_string(word, "}}") {
+            template_var_map.push(word.to_string());
+        }
+    }
     ExpressionData {
-        head: Some(head),
-        variable: variable,
-        tail: Some(tail),
+        expression: input_line.into(),
+        var_map: template_var_map,
+        gen_html: "".into(),
     }
 }
 
@@ -158,4 +156,5 @@ mod tests {
         assert_eq!((true, 3), get_index_for_symbol("Hi {name}, welcome", '{'));
     }
 }
+
 
